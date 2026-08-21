@@ -39,8 +39,12 @@ dependencies:
   hive_flutter: ^1.1.0
   file_picker: ^12.0.0
   record: ^7.1.1
-  permission_handler: ^13.0.1
+  # Pinned: 12.x+ pulls in permission_handler_android 14.x, which hardcodes
+  # compileSdk 37 — newer than this project's AGP version supports building
+  # against yet. Revisit once AGP/tooling catches up.
+  permission_handler: 11.4.0
   uuid: ^4.6.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../models/subtitle_document.dart';
 import '../services/library_controller.dart';
 import '../services/srt_parser.dart';
+import 'opensubtitles_search_screen.dart';
 import 'player_screen.dart';
 import 'settings_screen.dart';
 
@@ -90,6 +91,14 @@ class LibraryScreen extends StatelessWidget {
         title: const Text('DubSubs'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.travel_explore),
+            tooltip: 'Search OpenSubtitles',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OpenSubtitlesSearchScreen()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () =>
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
@@ -101,7 +110,7 @@ class LibraryScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Text(
-                  'No subtitles yet.\nImport an .srt file to get started.',
+                  'No subtitles yet.\nImport an .srt file, or search OpenSubtitles online.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),

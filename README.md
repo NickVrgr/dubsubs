@@ -18,6 +18,13 @@ Flutter.
 - **Import any `.srt` file** from local storage — no account, no internet
   required. Imported files are stored on-device so your library survives
   app restarts.
+- **Search OpenSubtitles.com** from inside the app and import a result
+  directly — same subtitle database VLC uses. Requires a free API key (see
+  [Configuration](#configuration) below) and **only works on Android/iOS**:
+  OpenSubtitles' API mandates a custom `User-Agent` header, which browsers
+  refuse to let JavaScript set, and their server also blocks the browser's
+  CORS preflight — so this is unavailable in the web build. Use local
+  `.srt` import on web instead.
 - **Play / pause** the subtitle timeline, plus **±5s / ±10s** jump buttons
   and a scrubber for fast-forwarding or rewinding subtitles to match what's
   happening on screen.
@@ -53,6 +60,36 @@ flutter run -d chrome    # Web
 flutter run -d <device>  # Android / iOS device or emulator/simulator
 ```
 
+## Configuration
+
+OpenSubtitles search needs an API key. It's optional — everything else
+(including local `.srt` import) works without it.
+
+1. Get a free key at <https://www.opensubtitles.com/en/consumers> (register
+   an app; the free tier gives a shared daily download quota, currently
+   ~100/day per key, no login required from the app itself).
+2. Copy `env.json.example` to `env.json` and fill in your key:
+   ```bash
+   cp env.json.example env.json
+   ```
+3. Run or build with it:
+   ```bash
+   flutter run --dart-define-from-file=env.json
+   flutter build apk --release --dart-define-from-file=env.json
+   ```
+
+`env.json` is gitignored — **never commit your API key**. For CI/CD (see
+`.github/workflows/`), add it as a repository secret named
+`OPENSUBTITLES_API_KEY` (Settings → Secrets and variables → Actions) and the
+workflows will pick it up automatically.
+
+Note that any key baked into a distributed build (the APK, the deployed web
+bundle) is technically extractable by anyone who inspects the binary — this
+is inherent to any client-only app calling a third-party API directly, the
+same tradeoff VLC and other open-source players make with their bundled
+OpenSubtitles credentials. It's a rate-limit identifier, not a secret that
+grants account access, so that tradeoff is acceptable here.
+
 ## How syncing works
 
 There's no video file inside the app — the movie plays on the cinema or TV
@@ -72,9 +109,9 @@ screen, and DubSubs just runs a clock you control:
 
 ```
 lib/
-  models/     Plain data classes (SubtitleCue, SubtitleDocument, AppSettings)
-  services/   SRT parsing, the sync clock, mic VAD assist, Hive storage, controllers
-  screens/    Library, Player, Settings
+  models/     Plain data classes (SubtitleCue, SubtitleDocument, AppSettings, OpenSubtitlesResult)
+  services/   SRT parsing, the sync clock, mic VAD assist, OpenSubtitles client, Hive storage, controllers
+  screens/    Library, Player, Settings, OpenSubtitles search
   widgets/    Subtitle overlay, transport controls, tap-to-sync picker
 ```
 
@@ -91,9 +128,10 @@ play/pause, malformed-file handling) through real user interactions.
 
 ## Roadmap ideas
 
-- Online subtitle search (e.g. OpenSubtitles) as an alternative to manual
-  `.srt` import.
+- A backend proxy for OpenSubtitles so search also works on web (their API
+  can't be called directly from a browser — see Features above).
 - Adjustable playback speed for long-term drift correction.
+- OpenSubtitles login support to raise the shared download quota.
 
 ## License
 
