@@ -82,7 +82,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => SyncLineList(
-        cues: _clock.cues,
+        clock: _clock,
         onPick: (cue) {
           _clock.syncLineNow(cue);
           Navigator.pop(context);

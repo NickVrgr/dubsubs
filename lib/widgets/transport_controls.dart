@@ -79,8 +79,7 @@ class TransportControls extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _compactIcon(Icons.replay_10, 'Back 10s', () => onJump(const Duration(seconds: -10))),
-              _compactIcon(Icons.replay_5, 'Back 5s', () => onJump(const Duration(seconds: -5))),
+              _compactIcon(Icons.fast_rewind, 'Back 1s', () => onJump(const Duration(seconds: -1))),
               IconButton(
                 iconSize: 40,
                 visualDensity: VisualDensity.compact,
@@ -90,8 +89,7 @@ class TransportControls extends StatelessWidget {
                 ),
                 onPressed: onPlayPause,
               ),
-              _compactIcon(Icons.forward_5, 'Forward 5s', () => onJump(const Duration(seconds: 5))),
-              _compactIcon(Icons.forward_10, 'Forward 10s', () => onJump(const Duration(seconds: 10))),
+              _compactIcon(Icons.fast_forward, 'Forward 1s', () => onJump(const Duration(seconds: 1))),
               const SizedBox(width: 4),
               _compactIcon(Icons.subtitles, 'Tap line to sync', onOpenSyncPicker),
               _compactIcon(
