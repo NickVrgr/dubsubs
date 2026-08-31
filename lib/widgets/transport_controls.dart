@@ -43,89 +43,81 @@ class TransportControls extends StatelessWidget {
         .toDouble();
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
+          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
         ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Text(_fmt(position), style: const TextStyle(color: Colors.white70, fontSize: 12)),
-              Expanded(
-                child: Slider(
-                  value: posMs.clamp(0, maxMs),
-                  max: maxMs,
-                  onChanged: hasDuration
-                      ? (v) => onSeek(Duration(milliseconds: v.round()))
-                      : null,
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            ),
+            child: Row(
+              children: [
+                Text(_fmt(position), style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                Expanded(
+                  child: Slider(
+                    value: posMs.clamp(0, maxMs),
+                    max: maxMs,
+                    onChanged: hasDuration
+                        ? (v) => onSeek(Duration(milliseconds: v.round()))
+                        : null,
+                  ),
                 ),
-              ),
-              Text(_fmt(duration), style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            ],
+                Text(_fmt(duration), style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              ],
+            ),
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              _compactIcon(Icons.replay_10, 'Back 10s', () => onJump(const Duration(seconds: -10))),
+              _compactIcon(Icons.replay_5, 'Back 5s', () => onJump(const Duration(seconds: -5))),
               IconButton(
-                icon: const Icon(Icons.replay_10, color: Colors.white),
-                tooltip: 'Back 10s',
-                onPressed: () => onJump(const Duration(seconds: -10)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.replay_5, color: Colors.white),
-                tooltip: 'Back 5s',
-                onPressed: () => onJump(const Duration(seconds: -5)),
-              ),
-              IconButton(
-                iconSize: 52,
+                iconSize: 40,
+                visualDensity: VisualDensity.compact,
                 icon: Icon(
                   isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
                   color: Colors.white,
                 ),
                 onPressed: onPlayPause,
               ),
-              IconButton(
-                icon: const Icon(Icons.forward_5, color: Colors.white),
-                tooltip: 'Forward 5s',
-                onPressed: () => onJump(const Duration(seconds: 5)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.forward_10, color: Colors.white),
-                tooltip: 'Forward 10s',
-                onPressed: () => onJump(const Duration(seconds: 10)),
-              ),
-            ],
-          ),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 12,
-            children: [
-              TextButton.icon(
-                onPressed: onOpenSyncPicker,
-                icon: const Icon(Icons.subtitles, color: Colors.white),
-                label: const Text('Tap line to sync', style: TextStyle(color: Colors.white)),
-              ),
-              TextButton.icon(
-                onPressed: onToggleMic,
-                icon: Icon(
-                  micListening ? Icons.mic : Icons.mic_none,
-                  color: micListening ? Colors.redAccent : Colors.white,
-                ),
-                label: Text(
-                  micListening ? 'Sync assist on' : 'Sync assist off',
-                  style: const TextStyle(color: Colors.white),
-                ),
+              _compactIcon(Icons.forward_5, 'Forward 5s', () => onJump(const Duration(seconds: 5))),
+              _compactIcon(Icons.forward_10, 'Forward 10s', () => onJump(const Duration(seconds: 10))),
+              const SizedBox(width: 4),
+              _compactIcon(Icons.subtitles, 'Tap line to sync', onOpenSyncPicker),
+              _compactIcon(
+                micListening ? Icons.mic : Icons.mic_none,
+                micListening ? 'Sync assist on' : 'Sync assist off',
+                onToggleMic,
+                color: micListening ? Colors.redAccent : Colors.white,
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _compactIcon(
+    IconData icon,
+    String tooltip,
+    VoidCallback onPressed, {
+    Color color = Colors.white,
+  }) {
+    return IconButton(
+      icon: Icon(icon, color: color, size: 22),
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      onPressed: onPressed,
     );
   }
 }

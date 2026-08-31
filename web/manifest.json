@@ -6,7 +6,7 @@
     "background_color": "#151320",
     "theme_color": "#151320",
     "description": "Offline subtitle teleprompter for dubbed movies.",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

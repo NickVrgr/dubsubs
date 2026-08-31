@@ -112,26 +112,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => setState(() => _controlsVisible = !_controlsVisible),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: ListenableBuilder(
-                listenable: _clock,
-                builder: (context, _) => SubtitleOverlay(
-                  text: _clock.currentCue?.text,
-                  settings: settings,
-                ),
-              ),
-            ),
-            SafeArea(
-              child: AnimatedOpacity(
-                opacity: _controlsVisible ? 1 : 0,
+        child: SafeArea(
+          child: Column(
+            children: [
+              AnimatedSize(
                 duration: const Duration(milliseconds: 200),
-                child: IgnorePointer(
-                  ignoring: !_controlsVisible,
-                  child: Column(
-                    children: [
-                      Padding(
+                curve: Curves.easeInOut,
+                child: !_controlsVisible
+                    ? const SizedBox(width: double.infinity)
+                    : Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                         child: Row(
                           children: [
@@ -156,8 +145,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           ],
                         ),
                       ),
-                      const Spacer(),
-                      ListenableBuilder(
+              ),
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: _clock,
+                  builder: (context, _) => SubtitleOverlay(
+                    text: _clock.currentCue?.text,
+                    settings: settings,
+                  ),
+                ),
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: !_controlsVisible
+                    ? const SizedBox(width: double.infinity)
+                    : ListenableBuilder(
                         listenable: Listenable.merge([_clock, _micSync]),
                         builder: (context, _) => TransportControls(
                           isPlaying: _clock.isPlaying,
@@ -171,12 +174,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           onToggleMic: _toggleMicSync,
                         ),
                       ),
-                    ],
-                  ),
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
