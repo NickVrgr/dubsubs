@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/subtitle_cue.dart';
 import '../models/subtitle_document.dart';
 import '../services/mic_sync_service.dart';
 import '../services/settings_controller.dart';
@@ -77,6 +78,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
     setState(() {});
   }
 
+  /// Prefers the cached translation for the current cue; falls back to the
+  /// original-language line whenever no translation is cached (or it
+  /// couldn't be produced) so the teleprompter never blanks out — see
+  /// SubtitleDocument.translationStatus.
+  String? _displayTextFor(SubtitleCue? cue) {
+    if (cue == null) return null;
+    final translated = widget.document.translatedLines;
+    if (widget.document.translationStatus == TranslationStatus.done && translated != null) {
+      final index = _clock.cues.indexOf(cue);
+      if (index >= 0 && index < translated.length) return translated[index];
+    }
+    return cue.text;
+  }
+
   void _openSyncPicker() {
     showModalBottomSheet(
       context: context,
@@ -150,7 +165,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: ListenableBuilder(
                   listenable: _clock,
                   builder: (context, _) => SubtitleOverlay(
-                    text: _clock.currentCue?.text,
+                    text: _displayTextFor(_clock.currentCue),
                     settings: settings,
                   ),
                 ),

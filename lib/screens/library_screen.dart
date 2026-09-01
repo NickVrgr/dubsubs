@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../models/subtitle_document.dart';
 import '../services/library_controller.dart';
 import '../services/srt_parser.dart';
+import '../services/translation_service.dart';
 import 'opensubtitles_search_screen.dart';
 import 'player_screen.dart';
 import 'settings_screen.dart';
@@ -82,6 +83,43 @@ class LibraryScreen extends StatelessWidget {
   String _formatDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  Future<void> _translate(BuildContext context, SubtitleDocument doc) async {
+    try {
+      await context.read<LibraryController>().translateDocument(doc.id);
+    } on TranslationUnavailableException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Widget _translationBadge(BuildContext context, SubtitleDocument doc) {
+    switch (doc.translationStatus) {
+      case TranslationStatus.pending:
+        return const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        );
+      case TranslationStatus.done:
+        return Tooltip(
+          message: 'Translated to ${doc.translatedLanguage} — ready offline',
+          child: const Icon(Icons.offline_pin, color: Colors.green),
+        );
+      case TranslationStatus.failed:
+        return IconButton(
+          icon: const Icon(Icons.cloud_off, color: Colors.orange),
+          tooltip: 'Translation failed — tap to retry',
+          onPressed: () => _translate(context, doc),
+        );
+      case TranslationStatus.none:
+        return IconButton(
+          icon: const Icon(Icons.translate),
+          tooltip: 'Translate for offline reading',
+          onPressed: () => _translate(context, doc),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final docs = context.watch<LibraryController>().documents;
@@ -124,9 +162,15 @@ class LibraryScreen extends StatelessWidget {
                   leading: const Icon(Icons.subtitles),
                   title: Text(doc.name),
                   subtitle: Text('Imported ${_formatDate(doc.importedAt)}'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _confirmDelete(context, doc),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _translationBadge(context, doc),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _confirmDelete(context, doc),
+                      ),
+                    ],
                   ),
                   onTap: () => Navigator.push(
                     context,

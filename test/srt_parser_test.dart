@@ -81,4 +81,43 @@ First
   test('throws SrtParseException when there are no valid cues', () {
     expect(() => SrtParser.parse('not a subtitle file'), throwsA(isA<SrtParseException>()));
   });
+
+  test('strips HTML-style styling tags', () {
+    const srt = '''
+1
+00:00:00,000 --> 00:00:01,000
+<i>Hello there.</i>
+
+2
+00:00:02,000 --> 00:00:03,000
+<b>Bold</b> and <font color="#ff0000">red</font> text.
+''';
+
+    final cues = SrtParser.parse(srt);
+    expect(cues[0].text, 'Hello there.');
+    expect(cues[1].text, 'Bold and red text.');
+  });
+
+  test('strips ASS-style override codes', () {
+    const srt = '''
+1
+00:00:00,000 --> 00:00:01,000
+{\\an8}{\\i1}Top of screen.
+''';
+
+    final cues = SrtParser.parse(srt);
+    expect(cues.single.text, 'Top of screen.');
+  });
+
+  test('strips tags spanning a multi-line cue without merging the lines', () {
+    const srt = '''
+1
+00:00:00,000 --> 00:00:02,000
+<i>Line one</i>
+<i>Line two</i>
+''';
+
+    final cues = SrtParser.parse(srt);
+    expect(cues.single.text, 'Line one\nLine two');
+  });
 }

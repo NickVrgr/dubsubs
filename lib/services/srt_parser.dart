@@ -19,6 +19,25 @@ class SrtParser {
     r'(\d{1,2}):(\d{2}):(\d{2})[.,](\d{1,3})',
   );
 
+  // <i>, <b>, <u>, <font color="...">, etc. — the small set of HTML-style
+  // tags .srt supports for styling. The player has no rich-text renderer for
+  // these yet, and sending them to a translation engine garbles the tag
+  // placement, so cue text is always plain — strip rather than display them.
+  static final RegExp _htmlTag = RegExp(r'<[^>]*>');
+
+  // ASS/SSA override codes (e.g. {\an8}, {\i1}) that sometimes leak into
+  // .srt files converted from other subtitle formats.
+  static final RegExp _assOverride = RegExp(r'\{\\[^}]*\}');
+
+  static String _stripFormatting(String text) {
+    return text
+        .replaceAll(_htmlTag, '')
+        .replaceAll(_assOverride, '')
+        .split('\n')
+        .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())
+        .join('\n');
+  }
+
   static List<SubtitleCue> parse(String source) {
     final text = source.startsWith('﻿') ? source.substring(1) : source;
     final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
@@ -55,7 +74,7 @@ class SrtParser {
       final end = _durationFromMatch(match, 5);
 
       final textLines = lines.sublist(lineOffset).map((l) => l.trimRight());
-      final cueText = textLines.join('\n').trim();
+      final cueText = _stripFormatting(textLines.join('\n').trim());
 
       fallbackIndex++;
       cues.add(
