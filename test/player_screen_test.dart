@@ -60,10 +60,10 @@ DubSubs is working offline.
     await pumpPlayer(tester);
 
     expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
-    expect(find.byIcon(Icons.replay_10), findsOneWidget);
-    expect(find.byIcon(Icons.forward_10), findsOneWidget);
-    expect(find.text('Tap line to sync'), findsOneWidget);
-    expect(find.text('Sync assist off'), findsOneWidget);
+    expect(find.byIcon(Icons.fast_rewind), findsOneWidget);
+    expect(find.byIcon(Icons.fast_forward), findsOneWidget);
+    expect(find.byTooltip('Tap line to sync'), findsOneWidget);
+    expect(find.byTooltip('Sync assist off'), findsOneWidget);
 
     // Position starts at zero, before the first cue (which starts at 1s).
     expect(find.text('Bienvenido al cine.'), findsNothing);
@@ -72,7 +72,7 @@ DubSubs is working offline.
   testWidgets('tap-to-sync snaps the subtitle display to the chosen line', (tester) async {
     await pumpPlayer(tester);
 
-    await tester.tap(find.text('Tap line to sync'));
+    await tester.tap(find.byTooltip('Tap line to sync'));
     await tester.pumpAndSettle();
 
     expect(find.text('This is a test subtitle line.'), findsOneWidget);
