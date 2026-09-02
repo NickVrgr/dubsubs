@@ -1,4 +1,4 @@
-package com.dubsubs.dubsubs
+package com.vargar.dubsubs
 
 import io.flutter.embedding.android.FlutterActivity
 
