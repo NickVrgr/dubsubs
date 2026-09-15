@@ -9,6 +9,7 @@ import 'package:dubsubs/models/subtitle_document.dart';
 import 'package:dubsubs/screens/player_screen.dart';
 import 'package:dubsubs/services/settings_controller.dart';
 import 'package:dubsubs/services/storage_service.dart';
+import 'package:dubsubs/widgets/subtitle_overlay.dart';
 
 void main() {
   late Directory hiveDir;
@@ -81,6 +82,37 @@ DubSubs is working offline.
     await tester.pumpAndSettle();
 
     expect(find.text('This is a test subtitle line.'), findsOneWidget);
+    expect(find.text('Bienvenido al cine.'), findsNothing);
+  });
+
+  testWidgets(
+      'double-tapping the right/left side of the video area jumps forward/back one second',
+      (tester) async {
+    await pumpPlayer(tester);
+
+    final rect = tester.getRect(find.byType(SubtitleOverlay));
+    final rightPoint = Offset(rect.right - 10, rect.center.dy);
+    final leftPoint = Offset(rect.left + 10, rect.center.dy);
+
+    // Cue 1 starts at 1s; a right-side double-tap should jump there.
+    await tester.tapAt(rightPoint);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(rightPoint);
+    await tester.pump();
+
+    expect(find.text('Bienvenido al cine.'), findsOneWidget);
+
+    // Let the seek-feedback icon's own timer finish before moving on.
+    await tester.pump(const Duration(milliseconds: 600));
+
+    // A left-side double-tap should jump back to before the cue again.
+    await tester.tapAt(leftPoint);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(leftPoint);
+    await tester.pump();
+
+    await tester.pump(const Duration(milliseconds: 600));
+
     expect(find.text('Bienvenido al cine.'), findsNothing);
   });
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -27,6 +29,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _controlsVisible = true;
   String? _parseError;
 
+  bool _showSeekFeedback = false;
+  bool _seekFeedbackForward = true;
+  Timer? _seekFeedbackTimer;
+
   @override
   void initState() {
     super.initState();
@@ -48,7 +54,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void dispose() {
     _clock.dispose();
     _micSync.dispose();
+    _seekFeedbackTimer?.cancel();
     super.dispose();
+  }
+
+  /// Double-tapping the left/right half of the screen jumps back/forward by
+  /// one second, same as the transport buttons — Prime-Video-style seeking.
+  void _handleDoubleTapSeek(TapDownDetails details) {
+    final width = MediaQuery.sizeOf(context).width;
+    final forward = details.localPosition.dx > width / 2;
+    _clock.jumpBy(Duration(seconds: forward ? 1 : -1));
+
+    _seekFeedbackTimer?.cancel();
+    setState(() {
+      _seekFeedbackForward = forward;
+      _showSeekFeedback = true;
+    });
+    _seekFeedbackTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) setState(() => _showSeekFeedback = false);
+    });
   }
 
   void _handleNudge(Duration delta) {
@@ -72,7 +96,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final ok = await _micSync.start();
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_micSync.lastError ?? 'Could not start sync assist.')),
+        SnackBar(
+          content: Text(_micSync.lastError ?? 'Could not start sync assist.'),
+        ),
       );
     }
     setState(() {});
@@ -85,7 +111,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String? _displayTextFor(SubtitleCue? cue) {
     if (cue == null) return null;
     final translated = widget.document.translatedLines;
-    if (widget.document.translationStatus == TranslationStatus.done && translated != null) {
+    if (widget.document.translationStatus == TranslationStatus.done &&
+        translated != null) {
       final index = _clock.cues.indexOf(cue);
       if (index >= 0 && index < translated.length) return translated[index];
     }
@@ -124,73 +151,152 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _controlsVisible = !_controlsVisible),
-        child: SafeArea(
-          child: Column(
-            children: [
-              AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                child: !_controlsVisible
-                    ? const SizedBox(width: double.infinity)
-                    : Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
-                              onPressed: () => Navigator.pop(context),
+      body: SafeArea(
+        child: Column(
+          children: [
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              child: !_controlsVisible
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back,
+                              color: Colors.white,
                             ),
-                            Expanded(
-                              child: Text(
-                                widget.document.name,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          Expanded(
+                            child: Text(
+                              widget.document.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.settings, color: Colors.white),
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.settings,
+                              color: Colors.white,
+                            ),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SettingsScreen(),
                               ),
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () =>
+                    setState(() => _controlsVisible = !_controlsVisible),
+                onDoubleTapDown: _handleDoubleTapSeek,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: ListenableBuilder(
+                        listenable: _clock,
+                        builder: (context, _) => SubtitleOverlay(
+                          text: _displayTextFor(_clock.currentCue),
+                          settings: settings,
                         ),
                       ),
-              ),
-              Expanded(
-                child: ListenableBuilder(
-                  listenable: _clock,
-                  builder: (context, _) => SubtitleOverlay(
-                    text: _displayTextFor(_clock.currentCue),
-                    settings: settings,
-                  ),
+                    ),
+                    Positioned.fill(
+                      child: _SeekFeedback(
+                        forward: _seekFeedbackForward,
+                        visible: _showSeekFeedback,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                child: !_controlsVisible
-                    ? const SizedBox(width: double.infinity)
-                    : ListenableBuilder(
-                        listenable: Listenable.merge([_clock, _micSync]),
-                        builder: (context, _) => TransportControls(
-                          isPlaying: _clock.isPlaying,
-                          position: _clock.position,
-                          duration: _clock.duration,
-                          micListening: _micSync.isListening,
-                          onPlayPause: _clock.togglePlayPause,
-                          onJump: _clock.jumpBy,
-                          onSeek: _clock.seekTo,
-                          onOpenSyncPicker: _openSyncPicker,
-                          onToggleMic: _toggleMicSync,
-                        ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              child: !_controlsVisible
+                  ? const SizedBox(width: double.infinity)
+                  : ListenableBuilder(
+                      listenable: Listenable.merge([_clock, _micSync]),
+                      builder: (context, _) => TransportControls(
+                        isPlaying: _clock.isPlaying,
+                        position: _clock.position,
+                        duration: _clock.duration,
+                        micListening: _micSync.isListening,
+                        onPlayPause: _clock.togglePlayPause,
+                        onJump: _clock.jumpBy,
+                        onSeek: _clock.seekTo,
+                        onOpenSyncPicker: _openSyncPicker,
+                        onToggleMic: _toggleMicSync,
                       ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Brief icon that flashes on the left/right half of the screen to
+/// acknowledge a double-tap seek, similar to Prime Video's seek animation.
+class _SeekFeedback extends StatelessWidget {
+  const _SeekFeedback({required this.forward, required this.visible});
+
+  final bool forward;
+  final bool visible;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: Align(
+        alignment: forward ? Alignment.centerRight : Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: 0.5,
+          child: Center(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 150),
+              builder: (context, opacity, child) =>
+                  Opacity(opacity: opacity, child: child),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: const BoxDecoration(
+                  color: Colors.black45,
+                  shape: BoxShape.circle,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      forward ? Icons.fast_forward : Icons.fast_rewind,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    const Text(
+                      '1s',
+                      style: TextStyle(color: Colors.white, fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),

@@ -28,6 +28,25 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Lets DubSubs be offered as an "Open with" target for .srt files.
+                 Android has no registered MIME type for .srt, so file managers send
+                 wildly different (or no) mimeType values — match on the extension via
+                 pathPattern instead, with mimeType left wildcarded. The pathPattern is
+                 repeated because Android's glob matcher only expands "*" against the
+                 single preceding character, so a name with more than one "." (e.g.
+                 "movie.en.srt") needs one extra ".*" per extra dot to match. -->
+            <intent-filter android:label="Open with DubSubs">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="content"/>
+                <data android:scheme="file"/>
+                <data android:mimeType="*/*"/>
+                <data android:host="*"/>
+                <data android:pathPattern=".*\\.srt"/>
+                <data android:pathPattern=".*\\..*\\.srt"/>
+                <data android:pathPattern=".*\\..*\\..*\\.srt"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -7,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../models/subtitle_document.dart';
 import '../services/library_controller.dart';
-import '../services/srt_parser.dart';
+import '../services/srt_import.dart';
 import '../services/translation_service.dart';
 import 'opensubtitles_search_screen.dart';
 import 'player_screen.dart';
@@ -35,25 +34,12 @@ class LibraryScreen extends StatelessWidget {
       return;
     }
 
-    String content;
-    try {
-      content = utf8.decode(bytes);
-    } catch (_) {
-      content = latin1.decode(bytes);
-    }
-
-    final name = file.name.replaceAll(RegExp(r'\.srt$', caseSensitive: false), '');
-
-    try {
-      final doc = await library.importSrt(name: name, rawSrtText: content);
-      if (context.mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(document: doc)));
-      }
-    } on SrtParseException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Not a valid .srt file: ${e.message}')));
-      }
+    final result = await importSrtBytes(library: library, fileName: file.name, bytes: bytes);
+    if (!context.mounted) return;
+    if (result.document != null) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(document: result.document!)));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.errorMessage!)));
     }
   }
 
