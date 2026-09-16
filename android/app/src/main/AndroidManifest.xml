@@ -47,6 +47,22 @@
                 <data android:pathPattern=".*\\..*\\.srt"/>
                 <data android:pathPattern=".*\\..*\\..*\\.srt"/>
             </intent-filter>
+            <!-- Lets DubSubs be offered as a target in the system Share sheet
+                 (as opposed to "Open with", above). Android's SEND intent has
+                 no filename to pattern-match against — only a declared MIME
+                 type — and since .srt has no MIME type registered on Android,
+                 senders pick whatever they feel like (often text/plain or
+                 application/octet-stream). List every type we've seen used in
+                 practice; MainActivity.kt still checks the actual filename
+                 before treating the shared content as a subtitle file. -->
+            <intent-filter android:label="Share with DubSubs">
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+                <data android:mimeType="application/x-subrip"/>
+                <data android:mimeType="text/srt"/>
+                <data android:mimeType="application/octet-stream"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
