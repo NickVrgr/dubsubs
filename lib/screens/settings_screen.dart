@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/app_settings.dart';
 import '../services/settings_controller.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -57,26 +56,6 @@ class SettingsScreen extends StatelessWidget {
           Slider(
             value: settings.backgroundOpacity,
             onChanged: (v) => controller.update((s) => s.copyWith(backgroundOpacity: v)),
-          ),
-          const SizedBox(height: 24),
-          const Text('Position on screen'),
-          const SizedBox(height: 8),
-          SegmentedButton<SubtitlePosition>(
-            segments: const [
-              ButtonSegment(
-                value: SubtitlePosition.bottom,
-                label: Text('Bottom'),
-                icon: Icon(Icons.vertical_align_bottom),
-              ),
-              ButtonSegment(
-                value: SubtitlePosition.top,
-                label: Text('Top'),
-                icon: Icon(Icons.vertical_align_top),
-              ),
-            ],
-            selected: {settings.position},
-            onSelectionChanged: (s) =>
-                controller.update((old) => old.copyWith(position: s.first)),
           ),
           const SizedBox(height: 24),
           const Text('Preview'),

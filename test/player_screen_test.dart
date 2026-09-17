@@ -63,26 +63,36 @@ DubSubs is working offline.
     expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
     expect(find.byIcon(Icons.fast_rewind), findsOneWidget);
     expect(find.byIcon(Icons.fast_forward), findsOneWidget);
-    expect(find.byTooltip('Tap line to sync'), findsOneWidget);
     expect(find.byTooltip('Sync assist off'), findsOneWidget);
 
-    // Position starts at zero, before the first cue (which starts at 1s).
-    expect(find.text('Bienvenido al cine.'), findsNothing);
+    // Position starts at zero, before the first cue (which starts at 1s) —
+    // it's previewed as the upcoming next line.
+    expect(find.text('Bienvenido al cine.'), findsOneWidget);
   });
 
-  testWidgets('tap-to-sync snaps the subtitle display to the chosen line', (tester) async {
+  testWidgets(
+      'swiping up/down over the subtitle display steps to the next/previous line',
+      (tester) async {
     await pumpPlayer(tester);
 
-    await tester.tap(find.byTooltip('Tap line to sync'));
+    // Swipe up: jumps the timeline to the (previously upcoming) first cue.
+    await tester.fling(find.byType(SubtitleOverlay), const Offset(0, -300), 1000, warnIfMissed: false);
     await tester.pumpAndSettle();
-
+    expect(find.text('Bienvenido al cine.'), findsOneWidget);
     expect(find.text('This is a test subtitle line.'), findsOneWidget);
 
-    await tester.tap(find.text('This is a test subtitle line.'));
+    // Swipe up again: advances to the second cue; the first now shows as
+    // the previous line and the third as the upcoming one.
+    await tester.fling(find.byType(SubtitleOverlay), const Offset(0, -300), 1000, warnIfMissed: false);
     await tester.pumpAndSettle();
-
+    expect(find.text('Bienvenido al cine.'), findsOneWidget);
     expect(find.text('This is a test subtitle line.'), findsOneWidget);
-    expect(find.text('Bienvenido al cine.'), findsNothing);
+    expect(find.text('DubSubs is working offline.'), findsOneWidget);
+
+    // Swipe down: back to the first cue.
+    await tester.fling(find.byType(SubtitleOverlay), const Offset(0, 300), 1000, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.text('DubSubs is working offline.'), findsNothing);
   });
 
   testWidgets(
@@ -98,9 +108,10 @@ DubSubs is working offline.
     await tester.tapAt(rightPoint);
     await tester.pump(const Duration(milliseconds: 50));
     await tester.tapAt(rightPoint);
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Bienvenido al cine.'), findsOneWidget);
+    expect(find.text('This is a test subtitle line.'), findsOneWidget);
 
     // Let the seek-feedback icon's own timer finish before moving on.
     await tester.pump(const Duration(milliseconds: 600));
@@ -109,11 +120,14 @@ DubSubs is working offline.
     await tester.tapAt(leftPoint);
     await tester.pump(const Duration(milliseconds: 50));
     await tester.tapAt(leftPoint);
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     await tester.pump(const Duration(milliseconds: 600));
 
-    expect(find.text('Bienvenido al cine.'), findsNothing);
+    // Back before the first cue: it's still shown as the upcoming line, but
+    // the second cue is no longer previewed as "next".
+    expect(find.text('Bienvenido al cine.'), findsOneWidget);
+    expect(find.text('This is a test subtitle line.'), findsNothing);
   });
 
   testWidgets('play/pause toggles the transport icon', (tester) async {

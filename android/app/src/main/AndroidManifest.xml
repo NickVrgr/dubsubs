@@ -24,6 +24,15 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Impeller (the default Android renderer) can flash a text
+                 glyph solid black for a frame the first time a given
+                 style/weight combination is drawn, while its shader
+                 compiles — visible here as the bold current subtitle line
+                 occasionally going black. Falling back to Skia avoids it. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.EnableImpeller"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

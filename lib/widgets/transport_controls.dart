@@ -12,8 +12,9 @@ class TransportControls extends StatelessWidget {
     required this.onPlayPause,
     required this.onJump,
     required this.onSeek,
-    required this.onOpenSyncPicker,
     required this.onToggleMic,
+    required this.isLandscape,
+    required this.onToggleRotation,
   });
 
   final bool isPlaying;
@@ -23,8 +24,9 @@ class TransportControls extends StatelessWidget {
   final VoidCallback onPlayPause;
   final void Function(Duration delta) onJump;
   final void Function(Duration target) onSeek;
-  final VoidCallback onOpenSyncPicker;
   final VoidCallback onToggleMic;
+  final bool isLandscape;
+  final VoidCallback onToggleRotation;
 
   String _fmt(Duration d) {
     if (d.isNegative) d = Duration.zero;
@@ -91,12 +93,16 @@ class TransportControls extends StatelessWidget {
               ),
               _compactIcon(Icons.fast_forward, 'Forward 1s', () => onJump(const Duration(seconds: 1))),
               const SizedBox(width: 4),
-              _compactIcon(Icons.subtitles, 'Tap line to sync', onOpenSyncPicker),
               _compactIcon(
                 micListening ? Icons.mic : Icons.mic_none,
                 micListening ? 'Sync assist on' : 'Sync assist off',
                 onToggleMic,
                 color: micListening ? Colors.redAccent : Colors.white,
+              ),
+              _compactIcon(
+                isLandscape ? Icons.screen_lock_rotation : Icons.screen_rotation,
+                isLandscape ? 'Switch to portrait' : 'Rotate screen',
+                onToggleRotation,
               ),
             ],
           ),

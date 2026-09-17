@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../models/subtitle_cue.dart';
 import '../models/subtitle_document.dart';
@@ -10,7 +12,6 @@ import '../services/settings_controller.dart';
 import '../services/srt_parser.dart';
 import '../services/subtitle_clock.dart';
 import '../widgets/subtitle_overlay.dart';
-import '../widgets/sync_line_list.dart';
 import '../widgets/transport_controls.dart';
 import 'settings_screen.dart';
 
@@ -33,6 +34,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _seekFeedbackForward = true;
   Timer? _seekFeedbackTimer;
 
+  bool? _wakelockEnabled;
+  bool _forcedLandscape = false;
+
   @override
   void initState() {
     super.initState();
@@ -48,14 +52,56 @@ class _PlayerScreenState extends State<PlayerScreen> {
     } on SrtParseException catch (e) {
       _parseError = e.message;
     }
+
+    _clock.addListener(_syncWakelock);
+
+    // Hide the status bar for the whole time the player is on screen — like
+    // a video app, the subtitle display should have the full screen to
+    // itself in both portrait and landscape. Swiping from the edge still
+    // reveals it briefly (immersiveSticky), then it auto-hides again.
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
+    _clock.removeListener(_syncWakelock);
+    if (_wakelockEnabled == true) WakelockPlus.disable();
+    if (_forcedLandscape) {
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _clock.dispose();
     _micSync.dispose();
     _seekFeedbackTimer?.cancel();
     super.dispose();
+  }
+
+  /// Keeps the screen from auto-locking while subtitles are actively
+  /// playing, the same way a video app keeps the screen on during playback —
+  /// there's no video underneath here, but the user still needs to keep
+  /// reading. Only toggles the platform wakelock on actual state changes;
+  /// the clock notifies every 100ms while playing.
+  void _syncWakelock() {
+    final shouldEnable = _clock.isPlaying;
+    if (_wakelockEnabled == shouldEnable) return;
+    _wakelockEnabled = shouldEnable;
+    if (shouldEnable) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
+  }
+
+  /// Manually flips between portrait and landscape, independent of the
+  /// device's own auto-rotate setting — useful when the user is holding the
+  /// phone with rotation lock on.
+  void _toggleRotation() {
+    setState(() => _forcedLandscape = !_forcedLandscape);
+    SystemChrome.setPreferredOrientations(
+      _forcedLandscape
+          ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+          : [DeviceOrientation.portraitUp],
+    );
   }
 
   /// Double-tapping the left/right half of the screen jumps back/forward by
@@ -119,18 +165,47 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return cue.text;
   }
 
-  void _openSyncPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => SyncLineList(
-        clock: _clock,
-        onPick: (cue) {
-          _clock.syncLineNow(cue);
-          Navigator.pop(context);
-        },
-      ),
-    );
+  /// Index of the first cue that starts after [position] — i.e. the "next"
+  /// cue when the clock is currently sitting in a gap between lines.
+  int _upcomingIndex(Duration position) {
+    final cues = _clock.cues;
+    var low = 0;
+    var high = cues.length;
+    while (low < high) {
+      final mid = (low + high) >> 1;
+      if (cues[mid].start <= position) {
+        low = mid + 1;
+      } else {
+        high = mid;
+      }
+    }
+    return low;
+  }
+
+  /// Manually advances to the next or previous line, for when the automatic
+  /// timing has drifted out of sync with what's actually being spoken —
+  /// triggered by swiping up (next) or down (previous) over the subtitle
+  /// display.
+  void _goToAdjacentLine({required bool forward}) {
+    final cues = _clock.cues;
+    if (cues.isEmpty) return;
+
+    final current = _clock.currentCue;
+    final int targetIndex;
+    if (current != null) {
+      targetIndex = cues.indexOf(current) + (forward ? 1 : -1);
+    } else {
+      targetIndex = _upcomingIndex(_clock.position) - (forward ? 0 : 1);
+    }
+
+    if (targetIndex < 0 || targetIndex >= cues.length) return;
+    _clock.syncLineNow(cues[targetIndex]);
+  }
+
+  void _handleVerticalSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 200) return;
+    _goToAdjacentLine(forward: velocity < 0);
   }
 
   @override
@@ -205,15 +280,39 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 onTap: () =>
                     setState(() => _controlsVisible = !_controlsVisible),
                 onDoubleTapDown: _handleDoubleTapSeek,
+                onVerticalDragEnd: _handleVerticalSwipe,
                 child: Stack(
                   children: [
                     Positioned.fill(
                       child: ListenableBuilder(
                         listenable: _clock,
-                        builder: (context, _) => SubtitleOverlay(
-                          text: _displayTextFor(_clock.currentCue),
-                          settings: settings,
-                        ),
+                        builder: (context, _) {
+                          final cues = _clock.cues;
+                          final current = _clock.currentCue;
+                          final int? currentIndex = current == null
+                              ? null
+                              : cues.indexOf(current);
+                          final upcomingIndex = currentIndex == null
+                              ? _upcomingIndex(_clock.position)
+                              : null;
+                          final prevIndex = currentIndex != null
+                              ? currentIndex - 1
+                              : upcomingIndex! - 1;
+                          final nextIndex = currentIndex != null
+                              ? currentIndex + 1
+                              : upcomingIndex!;
+
+                          SubtitleCue? at(int i) =>
+                              (i >= 0 && i < cues.length) ? cues[i] : null;
+
+                          return SubtitleOverlay(
+                            previousText: _displayTextFor(at(prevIndex)),
+                            currentText: _displayTextFor(current),
+                            nextText: _displayTextFor(at(nextIndex)),
+                            settings: settings,
+                            sequence: currentIndex ?? upcomingIndex!,
+                          );
+                        },
                       ),
                     ),
                     Positioned.fill(
@@ -241,8 +340,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         onPlayPause: _clock.togglePlayPause,
                         onJump: _clock.jumpBy,
                         onSeek: _clock.seekTo,
-                        onOpenSyncPicker: _openSyncPicker,
                         onToggleMic: _toggleMicSync,
+                        isLandscape: _forcedLandscape,
+                        onToggleRotation: _toggleRotation,
                       ),
                     ),
             ),
