@@ -52,50 +52,94 @@ class _SubtitleOverlayState extends State<SubtitleOverlay> {
     // Only lines that actually have text get a row — e.g. while paused in
     // the gap between two cues there's no current line, and reserving a
     // full-height blank slot for it looked like a broken/invisible line.
-    final lines = <Widget>[];
-    void addLine(String? text, {required bool current}) {
-      if (text == null || text.isEmpty) return;
-      if (lines.isNotEmpty) lines.add(const SizedBox(height: 6));
-      lines.add(_line(text, current: current));
-    }
+    final entries = <(String, bool)>[
+      if (widget.previousText?.isNotEmpty ?? false)
+        (widget.previousText!, false),
+      if (widget.currentText?.isNotEmpty ?? false) (widget.currentText!, true),
+      if (widget.nextText?.isNotEmpty ?? false) (widget.nextText!, false),
+    ];
+    final hasAnyLine = entries.isNotEmpty;
 
-    addLine(widget.previousText, current: false);
-    addLine(widget.currentText, current: true);
-    addLine(widget.nextText, current: false);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Shrink the whole block (never truncate) until every line fits the
+        // available height, so long cues are shown in full.
+        final availWidth =
+            (constraints.maxWidth.isFinite
+                ? constraints.maxWidth.clamp(0.0, 720.0)
+                : 720.0) -
+            48 -
+            32;
+        final availHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight - 32 - 24
+            : double.infinity;
+        var scale = 1.0;
+        if (hasAnyLine && availHeight.isFinite && availWidth > 0) {
+          final textScaler = MediaQuery.textScalerOf(context);
+          double heightAt(double sc) {
+            var h = 6.0 * (entries.length - 1);
+            for (final (text, current) in entries) {
+              final tp = TextPainter(
+                text: TextSpan(text: text, style: _style(current, sc)),
+                textAlign: TextAlign.center,
+                textDirection: TextDirection.ltr,
+                textScaler: textScaler,
+              )..layout(maxWidth: availWidth);
+              h += tp.height;
+              tp.dispose();
+            }
+            return h;
+          }
 
-    final hasAnyLine = lines.isNotEmpty;
+          while (scale > 0.25 && heightAt(scale) > availHeight) {
+            scale -= 0.05;
+          }
+        }
 
-    return Align(
-      alignment: Alignment.center,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: !hasAnyLine
-            ? const SizedBox.shrink()
-            : ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: settings.backgroundOpacity),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 260),
-                      switchInCurve: Curves.easeOut,
-                      switchOutCurve: Curves.easeIn,
-                      transitionBuilder: _buildTransition,
-                      child: Column(
-                        key: ValueKey(widget.sequence),
-                        mainAxisSize: MainAxisSize.min,
-                        children: lines,
+        final lines = <Widget>[];
+        for (final (text, current) in entries) {
+          if (lines.isNotEmpty) lines.add(const SizedBox(height: 6));
+          lines.add(_line(text, current: current, scale: scale));
+        }
+
+        return Align(
+          alignment: Alignment.center,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: !hasAnyLine
+                ? const SizedBox.shrink()
+                : ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(
+                          alpha: settings.backgroundOpacity,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 260),
+                          switchInCurve: Curves.easeOut,
+                          switchOutCurve: Curves.easeIn,
+                          transitionBuilder: _buildTransition,
+                          child: Column(
+                            key: ValueKey(widget.sequence),
+                            mainAxisSize: MainAxisSize.min,
+                            children: lines,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -110,25 +154,34 @@ class _SubtitleOverlayState extends State<SubtitleOverlay> {
         ? Offset(0, 0.35 * direction)
         : Offset(0, -0.35 * direction);
     return SlideTransition(
-      position: Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(
-        CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-      ),
+      position: Tween<Offset>(
+        begin: beginOffset,
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeInOut)),
       child: FadeTransition(opacity: animation, child: child),
     );
   }
 
-  Widget _line(String? text, {required bool current}) {
+  TextStyle _style(bool current, double scale) {
+    return TextStyle(
+      color: current
+          ? widget.settings.fontColor
+          : widget.settings.fontColor.withValues(alpha: 0.5),
+      fontSize:
+          (current
+              ? widget.settings.fontSize
+              : widget.settings.fontSize * 0.7) *
+          scale,
+      fontWeight: current ? FontWeight.w700 : FontWeight.w400,
+      height: 1.25,
+    );
+  }
+
+  Widget _line(String text, {required bool current, required double scale}) {
     return Text(
-      text ?? '',
+      text,
       textAlign: TextAlign.center,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: current ? widget.settings.fontColor : widget.settings.fontColor.withValues(alpha: 0.5),
-        fontSize: current ? widget.settings.fontSize : widget.settings.fontSize * 0.7,
-        fontWeight: current ? FontWeight.w700 : FontWeight.w400,
-        height: 1.25,
-      ),
+      style: _style(current, scale),
     );
   }
 }
