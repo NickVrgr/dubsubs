@@ -316,9 +316,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ),
                     ),
                     Positioned.fill(
-                      child: _SeekFeedback(
-                        forward: _seekFeedbackForward,
-                        visible: _showSeekFeedback,
+                      child: ListenableBuilder(
+                        listenable: _clock,
+                        builder: (context, _) {
+                          final scanSpeed = _clock.scanSpeed;
+                          if (scanSpeed != null) {
+                            return _SeekFeedback(
+                              forward: _clock.isScanningForward,
+                              visible: true,
+                              label: '$scanSpeed×',
+                            );
+                          }
+                          return _SeekFeedback(
+                            forward: _seekFeedbackForward,
+                            visible: _showSeekFeedback,
+                            label: '1s',
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -339,6 +353,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         micListening: _micSync.isListening,
                         onPlayPause: _clock.togglePlayPause,
                         onJump: _clock.jumpBy,
+                        onScanStart: (forward) =>
+                            _clock.startScan(forward: forward),
+                        onScanEnd: _clock.stopScan,
                         onSeek: _clock.seekTo,
                         onToggleMic: _toggleMicSync,
                         isLandscape: _forcedLandscape,
@@ -354,12 +371,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
 }
 
 /// Brief icon that flashes on the left/right half of the screen to
-/// acknowledge a double-tap seek, similar to Prime Video's seek animation.
+/// acknowledge a double-tap seek, similar to Prime Video's seek animation —
+/// also shown, with the current speed, while a transport button is held to
+/// scan.
 class _SeekFeedback extends StatelessWidget {
-  const _SeekFeedback({required this.forward, required this.visible});
+  const _SeekFeedback({
+    required this.forward,
+    required this.visible,
+    required this.label,
+  });
 
   final bool forward;
   final bool visible;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -389,9 +413,9 @@ class _SeekFeedback extends StatelessWidget {
                       color: Colors.white,
                       size: 28,
                     ),
-                    const Text(
-                      '1s',
-                      style: TextStyle(color: Colors.white, fontSize: 11),
+                    Text(
+                      label,
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
                     ),
                   ],
                 ),

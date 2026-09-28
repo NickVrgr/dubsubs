@@ -81,4 +81,51 @@ void main() {
     expect(clock.isPlaying, isFalse);
     clock.dispose();
   });
+
+  test('scanning forward runs faster than real time; release stays paused', () async {
+    final clock = SubtitleClock()..loadCues(_sampleCues());
+    clock.startScan(forward: true);
+    expect(clock.isScanning, isTrue);
+    expect(clock.scanSpeed, 2);
+
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    clock.stopScan();
+
+    expect(clock.isScanning, isFalse);
+    expect(clock.scanSpeed, isNull);
+    expect(clock.isPlaying, isFalse);
+    // At 2× for ~300ms of wall time, the timeline moved roughly 600ms.
+    expect(clock.position, greaterThan(const Duration(milliseconds: 450)));
+    expect(clock.position, lessThan(const Duration(seconds: 2)));
+
+    final frozen = clock.position;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(clock.position, frozen);
+    clock.dispose();
+  });
+
+  test('scanning backward rewinds and clamps at zero', () async {
+    final clock = SubtitleClock()..loadCues(_sampleCues());
+    clock.seekTo(const Duration(milliseconds: 300));
+    clock.startScan(forward: false);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    clock.stopScan();
+    expect(clock.position, Duration.zero);
+    clock.dispose();
+  });
+
+  test('scanning while playing keeps isPlaying and resumes on release', () async {
+    final clock = SubtitleClock()..loadCues(_sampleCues());
+    clock.play();
+    clock.startScan(forward: true);
+    expect(clock.isPlaying, isTrue);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    clock.stopScan();
+    expect(clock.isPlaying, isTrue);
+
+    final before = clock.position;
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(clock.position, greaterThan(before));
+    clock.dispose();
+  });
 }
